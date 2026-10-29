@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArcadeVerse — 64 Playable Mini-Games (Fixed)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+body{font-family:Inter,sans-serif;background:#070b16;color:#f3f4f6;background-image:radial-gradient(ellipse at top,#18244a 0%,#070b16 58%);background-attachment:fixed}
+.arcade-font{font-family:'Press Start 2P',monospace;letter-spacing:.02em}
+.glow-box{box-shadow:0 8px 0 #02040b,0 0 20px #6366f133;border:1px solid #6366f177;background-image:linear-gradient(145deg,#151b30,#0d1222)}
+.glow-box:hover{box-shadow:0 8px 0 #02040b,0 0 28px #a855f780;border-color:#a855f799;transform:translateY(-3px)}
+button{transition:transform .12s ease,filter .12s ease}
+button:hover{filter:brightness(1.15)}button:active{transform:translateY(2px)}
+canvas{image-rendering:pixelated;touch-action:none;background:#080d1b;outline:1px solid #39436a;box-shadow:inset 0 0 30px #000}
+.game-card{min-height:220px;position:relative;overflow:hidden}
+.game-card:after{content:'';position:absolute;inset:auto -30px -55px auto;width:120px;height:120px;border-radius:50%;background:#818cf822;filter:blur(18px);pointer-events:none}
+#game-overlay{backdrop-filter:blur(4px)}
+#level-picker{max-height:48vh;overflow:auto;background:linear-gradient(145deg,#101a31,#090f1e);box-shadow:0 12px 35px #0008,inset 0 1px #818cf833;}
+#level-buttons{max-height:310px;overflow-y:auto;padding:3px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;}
+.level-card{position:relative;min-height:94px;text-align:left;overflow:hidden;border-radius:12px;padding:10px;border:1px solid #334155;background:linear-gradient(145deg,#18243b,#0b1221);transition:transform .15s,border-color .15s,box-shadow .15s;}
+.level-card:not(:disabled):hover{transform:translateY(-2px);border-color:#818cf8;box-shadow:0 5px 18px #6366f133;}
+.level-card.current{border-color:#a5b4fc;background:linear-gradient(145deg,#3730a3,#172554);box-shadow:0 0 0 1px #818cf855,0 0 18px #6366f144;}
+.level-card.locked{opacity:.55;background:linear-gradient(145deg,#111827,#080d17);}
+.level-card .level-num{font-family:"Press Start 2P",monospace;font-size:13px;color:#e0e7ff;}
+.level-card .level-name{display:block;font-size:10px;font-weight:800;color:#e2e8f0;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.level-card .level-meta{display:block;font-size:9px;color:#94a3b8;margin-top:4px;}
+.level-card .level-state{position:absolute;top:8px;right:8px;font-size:12px;}
+.level-card .level-pips{display:flex;gap:3px;margin-top:8px;}
+.level-card .level-pips i{display:block;width:13px;height:3px;border-radius:3px;background:#334155;}
+.level-card.unlocked .level-pips i{background:#34d399;}
+#level-overview{border:1px solid #334155;border-radius:10px;background:#070d1a;padding:10px;margin-bottom:12px;}
+#level-overview-bar{height:6px;background:#1e293b;border-radius:8px;overflow:hidden;margin-top:8px;}
+#level-overview-fill{height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#818cf8,#c084fc);transition:width .3s;}
+@media(max-width:430px){#level-buttons{grid-template-columns:repeat(2,minmax(0,1fr));}}
+#game-view:fullscreen{box-sizing:border-box;width:100vw;height:100vh;overflow:auto;padding:16px;background:#070b16;background-image:radial-gradient(ellipse at top,#18244a 0%,#070b16 58%);}
+#game-view:fullscreen #game-stage{width:min( min(70vh, calc(100vw - 32px)), 520px);max-width:none;}
+#game-view:fullscreen #gameCanvas{width:100%;height:auto;max-height:70vh;object-fit:contain;}
+#game-view:fullscreen #level-hud,#game-view:fullscreen #level-picker,#game-view:fullscreen .mobile-controls{width:min( min(70vh, calc(100vw - 32px)), 520px);max-width:none;}
+#game-view:fullscreen #level-picker{max-height:28vh;}
+
+</style>
+</head>
+<body class="min-h-screen">
+
+<header class="sticky top-0 z-10 border-b border-gray-800 bg-gray-900/90 backdrop-blur">
+<div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-3">
+<h1 onclick="showHub()" class="arcade-font text-lg md:text-2xl text-indigo-300 cursor-pointer">ARCADEVERSE 🕹️</h1>
+<div class="text-xs text-gray-400">High scores saved on this device 💾</div>
+</div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 py-8">
+<section id="hub-view" class="space-y-8">
+<div class="text-center space-y-3">
+<h2 class="text-3xl md:text-5xl font-extrabold">Choose Your Game</h2>
+<p class="text-gray-400 max-w-2xl mx-auto">64 arcade challenges with crisp pixel visuals, smoother movement, hazards, targets, and local high scores. Choose a game and beat your best!</p>
+</div>
+<div id="game-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+</section>
+
+<section id="game-view" class="hidden flex-col items-center gap-5">
+<div class="w-full max-w-2xl flex justify-between items-center gap-3 bg-gray-900 p-4 rounded-xl border border-gray-800">
+<button onclick="showHub()" class="text-sm bg-gray-800 hover:bg-gray-700 px-3 py-2 rounded-lg">← Game Hub</button>
+<div id="game-title" class="arcade-font text-xs md:text-sm text-indigo-300 text-center">GAME</div>
+<div id="game-score" class="arcade-font text-xs md:text-sm text-emerald-300">0</div>
+</div>
+
+<div id="level-hud" class="w-full max-w-[400px] rounded-xl border border-indigo-500/50 bg-gray-900 px-4 py-3">
+  <div class="flex items-center justify-between gap-3 mb-2">
+    <span class="arcade-font text-[10px] text-indigo-300">LEVEL <span id="hud-level">1</span></span>
+    <span id="hud-progress-text" class="text-xs text-gray-300">Progress: 0%</span>
+    <button onclick="toggleLevelPicker()" class="rounded-md bg-indigo-700 hover:bg-indigo-600 px-2 py-1 text-[10px] font-bold">LEVELS</button>
+  </div>
+  <div class="h-2 rounded-full bg-gray-700 overflow-hidden"><div id="hud-progress" class="h-full rounded-full bg-gradient-to-r from-cyan-400 to-indigo-500" style="width:0%"></div></div>
+</div>
+<div id="game-stage" class="relative bg-black rounded-2xl overflow-hidden border border-gray-800 shadow-2xl w-full max-w-[400px]">
+<button id="fullscreen-btn" onclick="toggleFullscreen()" class="absolute z-20 top-2 right-2 bg-indigo-700/95 hover:bg-indigo-500 border border-indigo-300/50 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-lg" title="Toggle fullscreen" aria-label="Toggle fullscreen">⛶ FULLSCREEN</button>
+<canvas id="gameCanvas" width="400" height="600" class="block w-full h-auto"></canvas>
+<div id="game-overlay" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-6 text-center">
+<h3 id="overlay-title" class="arcade-font text-xl mb-3 text-indigo-300">READY?</h3>
+<p id="overlay-desc" class="text-gray-300 text-sm mb-6">Press start to play.</p>
+<button id="overlay-btn" onclick="startRound()" class="arcade-font bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-5 py-4 rounded-xl">START GAME</button>
+</div>
+</div>
+
+<div id="level-picker" class="hidden w-full max-w-[400px] rounded-xl border border-indigo-500/40 bg-gray-900 p-4">
+  <div class="flex items-center justify-between gap-2 mb-3">
+    <h3 class="arcade-font text-xs text-indigo-300">LEVEL SELECT</h3>
+    <div class="flex items-center gap-3"><span id="level-progress" class="text-xs text-gray-400"></span><button onclick="toggleLevelPicker(false)" class="rounded-md bg-gray-800 hover:bg-gray-700 px-2 py-1 text-xs" aria-label="Close level selector">✕</button></div>
+  </div>
+  <div id="level-overview"><div class="flex items-center justify-between gap-2"><span class="text-[10px] font-bold tracking-widest text-cyan-300">YOUR CAMPAIGN</span><span id="level-percent" class="text-xs text-indigo-200">2% complete</span></div><div id="level-overview-bar"><div id="level-overview-fill"></div></div><p id="level-current-detail" class="text-xs text-gray-400 mt-2">Choose a level to see its details.</p></div>
+  <p class="text-xs text-gray-400 mb-3">Each card shows the stage theme, difficulty and unlock status. Completed stages can be replayed.</p>
+  <div id="level-buttons" class="grid grid-cols-5 sm:grid-cols-8 gap-2"></div>
+</div>
+
+<div class="mobile-controls grid grid-cols-3 gap-3 w-full max-w-[400px] md:hidden">
+<button class="bg-gray-800 p-4 rounded-xl" onpointerdown="press('left')" onpointerup="release('left')" onpointerleave="release('left')">◀ LEFT</button>
+<button class="bg-gray-800 p-4 rounded-xl" onpointerdown="press('action')" onpointerup="release('action')" onpointerleave="release('action')">ACTION</button>
+<button class="bg-gray-800 p-4 rounded-xl" onpointerdown="press('right')" onpointerup="release('right')" onpointerleave="release('right')">RIGHT ▶</button>
+</div>
+<p class="text-xs text-gray-500 text-center">Keyboard: arrows / WASD • Space or Z = action • Esc = hub</p>
+</section>
+</main>
+
+<footer class="border-t border-gray-800 py-6 text-center text-xs text-gray-500">ArcadeVerse • HTML5 Canvas mini-games</footer>
+
+<script>
+const gameDefs = [
+{id:'racer',name:'Pixel Racer',icon:'🏎️',tag:'HARD MODE',color:'#818cf8',desc:'Dodge traffic and survive the road.',controls:'Left/right arrows or A/D'},
+{id:'snake',name:'Neon Snake',icon:'🐍',tag:'CLASSIC',color:'#34d399',desc:'Eat glowing orbs. Avoid walls and your tail.',controls:'Arrow keys or WASD'},
+{id:'blaster',name:'Space Blaster',icon:'🚀',tag:'SHOOTER',color:'#c084fc',desc:'Blast alien invaders before they escape.',controls:'Left/right to move, Space to fire'},
+{id:'bricks',name:'Brick Breaker',icon:'🧱',tag:'ARCADE',color:'#f472b6',desc:'Bounce the ball and break every brick.',controls:'Left/right or A/D to move paddle'},
+{id:'platform',name:'Pixel Platformer',icon:'🦘',tag:'JUMPER',color:'#fbbf24',desc:'Jump over hazards and reach the exit.',controls:'Left/right to move, Space to jump'},
+{id:'maze',name:'Maze Runner',icon:'🌀',tag:'MAZE',color:'#22d3ee',desc:'Find the exit while dodging roaming bots.',controls:'Arrow keys or WASD'},
+{id:'zombie',name:'Zombie Survival',icon:'🧟',tag:'SURVIVAL',color:'#a3e635',desc:'Move and fire to survive the zombie wave.',controls:'Arrows to move, Space to fire'},
+{id:'asteroid',name:'Asteroid Dodge',icon:'☄️',tag:'DODGE',color:'#fb923c',desc:'Pilot through an asteroid field.',controls:'Left/right to steer, Space to boost'},
+{id:'hoop',name:'Hoop Master',icon:'🏀',tag:'SKILL',color:'#fb7185',desc:'Time your shots and score baskets.',controls:'Space / Action to shoot'},
+{id:'tower',name:'Tower Defense',icon:'🏰',tag:'STRATEGY',color:'#60a5fa',desc:'Click or tap the field to place towers.',controls:'Click/tap to place towers'},
+{id:'pong',name:'Neon Pong',icon:'🏓',tag:'DUEL',color:'#2dd4bf',desc:'Beat the computer to seven points.',controls:'Up/down or W/S'},
+{id:'drift',name:'Drift King',icon:'🏁',tag:'RACING',color:'#e879f9',desc:'Steer through a winding track and avoid cones.',controls:'Left/right arrows or A/D'},
+{id:'blocks',name:'Block Puzzle',icon:'🧩',tag:'PUZZLE',color:'#facc15',desc:'Slide falling blocks and clear complete rows.',controls:'Left/right, Down, Up to rotate'},
+{id:'flight',name:'Neon Flight',icon:'🚁',tag:'ENDLESS',color:'#38bdf8',desc:'Flap through gaps without crashing.',controls:'Space / Action to flap'}
+,
+  {id:"meteor",name:"Meteor Miner",icon:"☄️",tag:"DODGE",color:"#fb923c",desc:"Dodge falling meteors.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"gemrush",name:"Gem Rush",icon:"💎",tag:"COLLECT",color:"#67e8f9",desc:"Collect gems.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"lasergrid",name:"Laser Grid",icon:"⚡",tag:"DODGE",color:"#f87171",desc:"Slip between laser gates.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"bubblepop",name:"Bubble Pop",icon:"🫧",tag:"TARGET",color:"#60a5fa",desc:"Pop targets for points.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"starcatcher",name:"Star Catcher",icon:"⭐",tag:"CATCH",color:"#facc15",desc:"Catch falling stars.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"fruitfrenzy",name:"Fruit Frenzy",icon:"🍉",tag:"CATCH",color:"#4ade80",desc:"Catch fruit and avoid bad items.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"robotron",name:"Robotron Arena",icon:"🤖",tag:"SHOOT",color:"#a78bfa",desc:"Blast robots.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"crystalcave",name:"Crystal Cave",icon:"🔮",tag:"COLLECT",color:"#c084fc",desc:"Gather crystals.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"frostfall",name:"Frost Fall",icon:"❄️",tag:"DODGE",color:"#7dd3fc",desc:"Avoid falling ice.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"firefly",name:"Firefly Hunt",icon:"✨",tag:"TARGET",color:"#fde68a",desc:"Hit glowing fireflies.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"candycatch",name:"Candy Catch",icon:"🍬",tag:"CATCH",color:"#f472b6",desc:"Catch candy.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"sharkdash",name:"Shark Dash",icon:"🦈",tag:"DODGE",color:"#38bdf8",desc:"Avoid sharks and reef hazards.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"volcanorun",name:"Volcano Run",icon:"🌋",tag:"DODGE",color:"#fb7185",desc:"Dodge volcanic rocks.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"moonlander",name:"Moon Lander",icon:"🌙",tag:"LAND",color:"#e5e7eb",desc:"Land gently on the moon.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"pinball",name:"Pixel Pinball",icon:"🎯",tag:"PADDLE",color:"#f472b6",desc:"Keep the ball bouncing.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"goalkeeper",name:"Goalkeeper",icon:"🥅",tag:"CATCH",color:"#34d399",desc:"Save incoming shots.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"penaltykick",name:"Penalty Kick",icon:"⚽",tag:"TARGET",color:"#4ade80",desc:"Score goals.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"tennisace",name:"Tennis Ace",icon:"🎾",tag:"PADDLE",color:"#bef264",desc:"Return the ball.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"skiescape",name:"Ski Escape",icon:"⛷️",tag:"DODGE",color:"#93c5fd",desc:"Avoid trees on the slope.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"desertdash",name:"Desert Dash",icon:"🌵",tag:"JUMP",color:"#fbbf24",desc:"Jump over cacti.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"cavernclimb",name:"Cavern Climb",icon:"🧗",tag:"JUMP",color:"#a3e635",desc:"Jump between platforms.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"cloudjumper",name:"Cloud Jumper",icon:"☁️",tag:"JUMP",color:"#e0f2fe",desc:"Bounce across clouds.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"penguinslide",name:"Penguin Slide",icon:"🐧",tag:"DODGE",color:"#67e8f9",desc:"Slide past icebergs.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"bugblaster",name:"Bug Blaster",icon:"🐞",tag:"SHOOT",color:"#f87171",desc:"Defend the garden.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"duckhunt",name:"Duck Hunt",icon:"🦆",tag:"TARGET",color:"#fbbf24",desc:"Hit moving targets.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"wizardduel",name:"Wizard Duel",icon:"🧙",tag:"SHOOT",color:"#c084fc",desc:"Fire magic bolts.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"ghostpatrol",name:"Ghost Patrol",icon:"👻",tag:"SHOOT",color:"#e9d5ff",desc:"Keep ghosts away.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"underwater",name:"Underwater Quest",icon:"🐠",tag:"COLLECT",color:"#22d3ee",desc:"Collect pearls underwater.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"treasurehunt",name:"Treasure Hunt",icon:"🗝️",tag:"COLLECT",color:"#facc15",desc:"Find treasure and avoid traps.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"safebreaker",name:"Safe Breaker",icon:"🔐",tag:"MEMORY",color:"#a5b4fc",desc:"Remember the pattern.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"colorclash",name:"Color Clash",icon:"🎨",tag:"TARGET",color:"#fb7185",desc:"Hit targets for points.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"rhythmtiles",name:"Rhythm Tiles",icon:"🎵",tag:"CATCH",color:"#c084fc",desc:"Catch falling notes.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"numberninja",name:"Number Ninja",icon:"🔢",tag:"TARGET",color:"#60a5fa",desc:"Hit numbered targets.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"wordwizard",name:"Word Wizard",icon:"📚",tag:"MEMORY",color:"#34d399",desc:"Remember a sequence.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"orbitdefender",name:"Orbit Defender",icon:"🪐",tag:"SHOOT",color:"#818cf8",desc:"Protect your planet.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"cometchaser",name:"Comet Chaser",icon:"🌠",tag:"DODGE",color:"#f9a8d4",desc:"Avoid speeding comets.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"bomberbot",name:"Bomber Bot",icon:"💣",tag:"DODGE",color:"#f97316",desc:"Avoid bouncing bombs.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"tankbattle",name:"Tank Battle",icon:"🛡️",tag:"SHOOT",color:"#94a3b8",desc:"Fire at targets.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"turbohoops",name:"Turbo Hoops",icon:"🏀",tag:"TARGET",color:"#fb923c",desc:"Score timed shots.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"skatepark",name:"Skate Park",icon:"🛹",tag:"JUMP",color:"#f0abfc",desc:"Jump over barriers.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"riverraft",name:"River Raft",icon:"🛶",tag:"DODGE",color:"#2dd4bf",desc:"Navigate river hazards.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"beeescape",name:"Bee Escape",icon:"🐝",tag:"DODGE",color:"#facc15",desc:"Avoid buzzing bees.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"potionmix",name:"Potion Mix",icon:"🧪",tag:"MEMORY",color:"#a78bfa",desc:"Repeat the recipe pattern.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"towerhop",name:"Tower Hop",icon:"🗼",tag:"JUMP",color:"#fda4af",desc:"Hop between ledges.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"magnetball",name:"Magnet Ball",icon:"🧲",tag:"PADDLE",color:"#67e8f9",desc:"Keep the orb bouncing.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"snowball",name:"Snowball Fight",icon:"⛄",tag:"SHOOT",color:"#bae6fd",desc:"Throw snowballs at targets.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"swordtraining",name:"Sword Training",icon:"⚔️",tag:"TARGET",color:"#f87171",desc:"Strike targets.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"rocketrescue",name:"Rocket Rescue",icon:"🚀",tag:"DODGE",color:"#38bdf8",desc:"Fly through hazards.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"farmdefender",name:"Farm Defender",icon:"🚜",tag:"CATCH",color:"#a3e635",desc:"Catch crops and avoid pests.",controls:"Arrows / WASD \u2022 Space or click for action"},
+  {id:"neonrunner",name:"Neon Runner",icon:"🏃",tag:"JUMP",color:"#f472b6",desc:"Jump and survive the neon track.",controls:"Arrows / WASD \u2022 Space or click for action"}
+];
+
+const safeStorage={getItem(k){try{return window.localStorage.getItem(k)}catch(e){return null}},setItem(k,v){try{window.localStorage.setItem(k,v)}catch(e){}}};
+const $=id=>document.getElementById(id);
+const canvas=$('gameCanvas'),ctx=canvas.getContext('2d');
+const scores={},levels={};
+let current=null,loop=null,raf=null,run=null,score=0,level=1,roundFinished=false,keys={},touch={left:false,right:false,action:false};
+
+gameDefs.forEach(g=>{
+  scores[g.id]=+(safeStorage.getItem('av_score_'+g.id)||0);
+  levels[g.id]=Math.max(1,Math.min(50,parseInt(safeStorage.getItem('av_level_'+g.id)||'1',10)||1));
+});
+
+$('game-grid').innerHTML=gameDefs.map(g=>`
+<article class="game-card glow-box bg-gray-900/80 rounded-2xl p-5 flex flex-col justify-between transition hover:-translate-y-1 cursor-pointer" onclick="openGame('${g.id}')">
+<div>
+<div class="flex justify-between items-center mb-4">
+<span class="text-3xl">${g.icon}</span>
+<span class="text-[10px] arcade-font rounded-full px-3 py-2" style="background:${g.color}22;color:${g.color};border:1px solid ${g.color}66">${g.tag}</span>
+</div>
+<h3 class="text-lg font-bold mb-2">${g.name}</h3>
+<p class="text-gray-400 text-sm">${g.desc}</p>
+</div>
+<div class="flex justify-between items-center mt-5 pt-4 border-t border-gray-800 text-xs">
+<span class="text-gray-400">Best: <b style="color:${g.color}">${scores[g.id]}</b> · Level ${levels[g.id]}</span>
+<b style="color:${g.color}">PLAY →</b>
+</div>
+</article>`).join('');
+
+function drawText(t,x,y,size=18,color='#fff',align='center'){
+  ctx.fillStyle=color;
+  ctx.font=`bold ${size}px Inter`;
+  ctx.textAlign=align;
+  ctx.fillText(t,x,y);
+}
+function base(bg='#0b0f19'){
+  ctx.fillStyle=bg;
+  ctx.fillRect(0,0,400,600);
+}
+function rect(o,c){
+  ctx.fillStyle=c;
+  ctx.fillRect(o.x,o.y,o.w,o.h);
+}
+function circle(x,y,r,c){
+  ctx.fillStyle=c;
+  ctx.beginPath();
+  ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.fill();
+}
+
+function openGame(id){
+  stop();
+  current=gameDefs.find(g=>g.id===id);
+  level=Math.max(1,Math.min(50,levels[id]||1));
+  score=0;
+  $('level-picker').classList.add('hidden');
+  renderLevelPicker();
+  $('hub-view').classList.add('hidden');
+  $('game-view').classList.remove('hidden');
+  $('game-view').classList.add('flex');
+  $('game-title').textContent=current.icon+' '+current.name.toUpperCase();
+  $('game-overlay').classList.remove('hidden');
+  $('overlay-title').textContent='READY?';
+  $('overlay-desc').textContent=current.desc+' Controls: '+current.controls+'. Current level: '+level+'. Difficulty increases as you advance.';
+  $('overlay-btn').textContent='PLAY LEVEL '+level;
+  base();
+  drawText(current.name,200,290,22,current.color);
+}
+
+function showHub(){
+  stop();
+  canvas.onclick=null;
+  current=null;
+  $('game-view').classList.add('hidden');
+  $('game-view').classList.remove('flex');
+  $('level-picker').classList.add('hidden');
+  $('hub-view').classList.remove('hidden');
+}
+function stop(){
+  if(loop&&typeof loop.stop==='function')loop.stop();
+  if(raf)cancelAnimationFrame(raf);
+  loop=null;
+  raf=null;
+  run=null;
+}
+function press(k){
+  if(current?.id==='racer'&&(k==='left'||k==='right')){run?.moveLane?.(k==='left'?-1:1);return;}
+  touch[k]=true;
+  if(current?.id==='flight'&&run)run.flap?.();
+  if(current?.id==='hoop'&&run)run.shoot?.();
+}
+function release(k){touch[k]=false}
+
+window.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+  if(!e.repeat&&current?.id==='racer'){
+    if(['ArrowLeft','KeyA'].includes(e.code))run?.moveLane?.(-1);
+    if(['ArrowRight','KeyD'].includes(e.code))run?.moveLane?.(1);
+  }
+  if(e.code==='Escape'){if(document.fullscreenElement){document.exitFullscreen().catch(()=>{});e.stopPropagation();}else showHub();}
+  if(current?.id==='flight'&&e.code==='Space')run?.flap?.();
+  if(current?.id==='hoop'&&e.code==='Space')run?.shoot?.();
+});
+window.addEventListener('keyup',e=>keys[e.code]=false);
+
+function finish(win,msg){
+  // A round may trigger more than one win/loss callback in the same frame.
+  if(roundFinished)return;
+  roundFinished=true;
+  stop();
+  const completedLevel=level;
+  if(win){
+    scores[current.id]=Math.max(scores[current.id],score);
+    // Only completing the newest unlocked level unlocks the next one.
+    // Replaying an older level never changes or reduces saved progress.
+    const wasNewestUnlocked=completedLevel===levels[current.id];
+    if(wasNewestUnlocked && levels[current.id]<50){
+      levels[current.id]=Math.min(50,completedLevel+1);
+      level=levels[current.id]; // The main button now starts the newly unlocked level.
+    } else {
+      level=completedLevel;
+    }
+    safeStorage.setItem('av_score_'+current.id,scores[current.id]);
+    safeStorage.setItem('av_level_'+current.id,levels[current.id]);
+  }
+  renderCards();
+  renderLevelPicker();
+  $('game-overlay').classList.remove('hidden');
+  $('overlay-title').textContent=win?'LEVEL '+completedLevel+' CLEAR! 🎉':'TRY AGAIN!';
+  $('overlay-desc').textContent=msg+' Score: '+score+(win?' · Unlocked through level '+levels[current.id]:' · Current level: '+level);
+  $('overlay-btn').textContent=win?(level>completedLevel?'PLAY LEVEL '+level:'REPLAY LEVEL '+completedLevel):'RETRY LEVEL '+level;
+}
+function renderCards(){
+  [...$('game-grid').children].forEach((el,i)=>{
+    const g=gameDefs[i];
+    el.querySelector('.text-xs').innerHTML=`Best: <b style="color:${g.color}">${scores[g.id]}</b> · Unlocked ${levels[g.id]}`;
+  });
+}
+function toggleLevelPicker(force){
+  if(!current)return;
+  const picker=$('level-picker');
+  const shouldOpen=typeof force==='boolean'?force:picker.classList.contains('hidden');
+  picker.classList.toggle('hidden',!shouldOpen);
+  renderLevelPicker();
+  if(shouldOpen) picker.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+async function toggleFullscreen(){
+  const target=$('game-view');
+  try{
+    if(document.fullscreenElement){await document.exitFullscreen();}
+    else if(target.requestFullscreen){await target.requestFullscreen();}
+    else { $('overlay-desc').textContent='Fullscreen is not supported by this browser.'; return; }
+  }catch(err){ $('overlay-desc').textContent='Fullscreen could not start. Try using your browser menu.'; }
+}
+document.addEventListener('fullscreenchange',()=>{
+  const btn=$('fullscreen-btn');
+  if(btn){btn.textContent=document.fullscreenElement?'✕ EXIT FULLSCREEN':'⛶ FULLSCREEN';btn.title=document.fullscreenElement?'Exit fullscreen':'Toggle fullscreen';}
+});
+function renderLevelPicker(){
+  if(!current)return;
+  const unlocked=Math.max(1,Math.min(50,Number(levels[current.id])||1));
+  const pct=Math.round((unlocked-1)/49*100);
+  $('level-progress').textContent=`${unlocked}/50 unlocked`;
+  const percent=$('level-percent'); if(percent)percent.textContent=`${pct}% unlocked`;
+  const fill=$('level-overview-fill'); if(fill)fill.style.width=pct+'%';
+  const themes=['Neon Streets','Turbo Tunnel','Pixel Harbor','Crystal Pass','Midnight Run','Skyline Rush','Cyber District','Lava Circuit','Frostbite Road','Final Showdown'];
+  const difficulties=['ROOKIE','EASY','EASY+','NORMAL','NORMAL+','TOUGH','HARD','HARD+','EXPERT','BOSS'];
+  const themeFor=n=>themes[Math.min(9,Math.floor((n-1)/5))];
+  const diffFor=n=>difficulties[Math.min(9,Math.floor((n-1)/5))];
+  const detail=$('level-current-detail');
+  if(detail)detail.textContent=`Selected: Level ${level} · ${themeFor(level)} · ${diffFor(level)} · ${level<unlocked?'Replay available':'Beat this stage to unlock the next one'}`;
+  $('level-buttons').innerHTML=Array.from({length:50},(_,i)=>i+1).map(n=>{
+    const isUnlocked=n<=unlocked, isCurrent=n===level, isCleared=n<unlocked;
+    const state=isCurrent?'▶':isCleared?'✓':isUnlocked?'●':'🔒';
+    const pips=Array.from({length:3},(_,j)=>`<i style="${isUnlocked&&j<Math.min(3,Math.ceil(n/17))?'background:'+(isCurrent?'#c4b5fd':'#34d399'):''}"></i>`).join('');
+    return `<button ${isUnlocked?'':'disabled'} onclick="selectLevel(${n})" class="level-card ${isUnlocked?'unlocked':'locked'} ${isCurrent?'current':''}" aria-label="${isUnlocked?'Play level '+n:'Level '+n+' locked'}" title="${isUnlocked?'Play or replay level '+n:'Beat level '+unlocked+' to unlock'}"><span class="level-state">${state}</span><span class="level-num">${String(n).padStart(2,'0')}</span><span class="level-name">${themeFor(n)}</span><span class="level-meta">${diffFor(n)} · ${isCleared?'CLEARED':isCurrent?'SELECTED':isUnlocked?'UNLOCKED':'LOCKED'}</span><span class="level-pips">${pips}</span></button>`;
+  }).join('');
+}
+function selectLevel(n){
+  if(!current)return;
+  const unlocked=Math.max(1,Math.min(50,Number(levels[current.id])||1));
+  if(n<1||n>unlocked)return;
+  stop();
+  level=n;
+  roundFinished=false;
+  updateScore();
+  renderLevelPicker();
+  $('overlay-title').textContent=n<unlocked?'REPLAY LEVEL '+n:'LEVEL '+n;
+  $('overlay-desc').textContent=current.desc+' Controls: '+current.controls+'. '+(n<unlocked?'This level is already completed; replay it as often as you like.':'Beat this level to unlock the next one.');
+  $('overlay-btn').textContent='PLAY LEVEL '+n;
+  $('game-overlay').classList.remove('hidden');
+  updateScore();
+}
+function startRound(){
+  stop();
+  if(!current)return;
+  level=Math.max(1,Math.min(50,Number(level)||1));
+  roundFinished=false;
+  keys={};touch={left:false,right:false,action:false};
+  canvas.onclick=null;
+  $('game-overlay').classList.add('hidden');
+  score=0;
+  updateScore();
+  const progressBar=$('hud-progress'); if(progressBar)progressBar.style.width='0%';
+  const progressLabel=$('hud-progress-text'); if(progressLabel)progressLabel.textContent='Progress: 0%';
+  const id=current.id;
+  const game={
+    racer:gameRacer,snake:gameSnake,blaster:gameBlaster,bricks:gameBricks,
+    platform:gamePlatform,maze:gameMaze,zombie:gameZombie,asteroid:gameAsteroid,
+    hoop:gameHoop,tower:gameTower,pong:gamePong,drift:gameDrift,
+    blocks:gameBlocks,flight:gameFlight
+  };
+  run={};
+  if(game[id]) game[id]();
+  else gameExtra(id);
+}
+function updateScore(){
+  $('game-score').textContent='LV '+level+' · '+score;
+  const hudLevel=$('hud-level'); if(hudLevel)hudLevel.textContent=level;
+}
+function add(n=1){
+  score+=n;
+  updateScore();
+}
+function tick(fn,ms=16){
+  if(raf)cancelAnimationFrame(raf);
+  const step=Math.max(8,ms), maxDelta=100;
+  let last=0,acc=0,active=true;
+  loop={stop(){active=false;}};
+  const frame=(now)=>{
+    if(!active||!current)return;
+    if(!last)last=now;
+    acc+=Math.min(maxDelta,now-last);last=now;
+    let safety=0;
+    while(acc>=step&&safety++<5&&active){
+      fn();acc-=step;
+    }
+    if(active)raf=requestAnimationFrame(frame);
+  };
+  raf=requestAnimationFrame(frame);
+}
+function win(msg){finish(true,msg)}
+function lose(msg){finish(false,msg)}
+
+function gameRacer(){
+  // Three distinct fixed lanes: the car changes lanes, never steers freely across the road.
+  const laneLeft=[95,182,269]; // left edge of car; centers are 113, 200, 287
+  const laneCenters=[113,200,287];
+  let lane=1,carX=laneLeft[1],car={y:500,w:36,h:58},obs=[],frame=0;
+  const targetFrames=Math.max(500,900-level*4);
+  run.moveLane=(direction)=>{lane=Math.max(0,Math.min(2,lane+direction));};
+  tick(()=>{
+    frame++;
+    base('#07130c');
+    // Grass verges and a road with three clearly marked lanes.
+    ctx.fillStyle='#14532d';ctx.fillRect(0,0,400,600);
+    for(let y=(frame*(5+level*.12))%48-48;y<600;y+=48){
+      ctx.fillStyle='#166534';ctx.fillRect(18,y,28,20);ctx.fillRect(354,y+20,28,20);
+    }
+    ctx.fillStyle='#27272a';ctx.fillRect(65,0,270,600);
+    ctx.fillStyle='#3f3f46';ctx.fillRect(72,0,256,600);
+    // Bright dashed lane separators sit exactly between the three lane centers.
+    const dashOffset=(frame*(5+level*.12))%64;
+    for(let y=dashOffset-64;y<600;y+=64){
+      ctx.fillStyle='#f8fafc';ctx.fillRect(155,y,5,32);ctx.fillRect(242,y,5,32);
+    }
+    // Subtle lane shading makes the three playable positions obvious.
+    ctx.fillStyle='#ffffff08';ctx.fillRect(75,0,80,600);ctx.fillRect(160,0,81,600);ctx.fillRect(247,0,80,600);
+    // Smoothly animate between lane centers instead of free steering.
+    carX+=(laneLeft[lane]-carX)*0.28;
+    const spawnEvery=Math.max(18,36-Math.floor(level*.35));
+    if(frame%spawnEvery===0){
+      const obstacleLane=Math.floor(Math.random()*3);
+      obs.push({lane:obstacleLane,x:laneLeft[obstacleLane],y:-72,w:36,h:56});
+    }
+    const speed=4.2+Math.min(8,level*.22);
+    obs.forEach(o=>o.y+=speed);
+    obs=obs.filter(o=>o.y<630);
+    for(const o of obs){
+      // Traffic stays centered in one of the same three lanes as the player.
+      rect(o,'#dc2626');
+      rect({x:o.x+6,y:o.y+7,w:24,h:13},'#fecaca');
+      rect({x:o.x+4,y:o.y+o.h-7,w:7,h:5},'#111827');
+      rect({x:o.x+25,y:o.y+o.h-7,w:7,h:5},'#111827');
+      if(lane===o.lane&&car.y<o.y+o.h&&car.y+car.h>o.y)
+        return lose('Crash! Switch to another lane before traffic reaches you.');
+    }
+    // Player car is visually centered in the selected lane.
+    rect({x:carX-3,y:car.y+8,w:42,h:43},'#4f46e5');
+    rect({x:carX+4,y:car.y,w:28,h:55},'#818cf8');
+    rect({x:carX+7,y:car.y+8,w:22,h:14},'#bfdbfe');
+    rect({x:carX+5,y:car.y+42,w:7,h:7},'#fef3c7');
+    rect({x:carX+24,y:car.y+42,w:7,h:7},'#fef3c7');
+    drawText('LANE '+(lane+1)+' / 3',200,28,13,'#ffffff');
+    if(frame%10===0)add();
+    const progress=Math.min(100,Math.floor(frame/targetFrames*100));
+    const bar=$('hud-progress'); if(bar)bar.style.width=progress+'%';
+    const label=$('hud-progress-text'); if(label)label.textContent='Progress: '+progress+'%';
+    if(frame>=targetFrames)return win('Finish line reached!');
+  },16);
+}
+function gameSnake(){
+  let s=[{x:10,y:15},{x:9,y:15},{x:8,y:15}],
+      d={x:1,y:0},food={x:14,y:15},n=0;
+  const set=(x,y)=>{if(x!==-d.x||y!==-d.y)d={x,y}};
+  run.set=set;
+  let last=0;
+  tick(()=>{
+    if(keys.ArrowLeft||keys.KeyA)set(-1,0);
+    if(keys.ArrowRight||keys.KeyD)set(1,0);
+    if(keys.ArrowUp||keys.KeyW)set(0,-1);
+    if(keys.ArrowDown||keys.KeyS)set(0,1);
+    if(++last<Math.max(3,8-level/10))return;
+    last=0;
+    let h={x:s[0].x+d.x,y:s[0].y+d.y};
+    if(h.x<0||h.x>=20||h.y<0||h.y>=29||s.some(p=>p.x===h.x&&p.y===h.y))
+      return lose('Snake hit something!');
+    s.unshift(h);
+    if(h.x===food.x&&h.y===food.y){
+      add(10);
+      n++;
+      food={x:Math.floor(Math.random()*20),y:Math.floor(Math.random()*29)};
+      if(n>=5+Math.floor(level/2))return win('All orbs collected!');
+    }else s.pop();
+    base();
+    circle(food.x*20+9,30+food.y*20+9,8,'#34d399');
+    s.forEach((p,i)=>rect({x:p.x*20+1,y:21+p.y*20,w:17,h:17},i?'#059669':'#6ee7b7'));
+  },20);
+}
+
+function gameBlaster(){
+  let ship=180,bul=[],ali=[],f=0,k=0;
+  tick(()=>{
+    f++;
+    base();
+    if(keys.ArrowLeft||keys.KeyA||touch.left)ship-=5;
+    if(keys.ArrowRight||keys.KeyD||touch.right)ship+=5;
+    ship=Math.max(0,Math.min(360,ship));
+    if((keys.Space||touch.action)&&f%10===0)bul.push({x:ship+18,y:520});
+    if(f%28===0)ali.push({x:Math.random()*360,y:-25});
+    bul.forEach(b=>b.y-=8);
+    ali.forEach(a=>a.y+=2+level*.08);
+    for(let i=ali.length-1;i>=0;i--){
+      for(let j=bul.length-1;j>=0;j--){
+        if(Math.abs(ali[i].x-bul[j].x)<25&&Math.abs(ali[i].y-bul[j].y)<25){
+          ali.splice(i,1);
+          bul.splice(j,1);
+          add(10);
+          k++;
+          break;
+        }
+      }
+    }
+    if(ali.some(a=>a.y>570))return lose('An invader escaped!');
+    rect({x:ship,y:535,w:40,h:28},'#a855f7');
+    bul.forEach(b=>rect({x:b.x,y:b.y,w:4,h:12},'#f43f5e'));
+    ali.forEach(a=>rect({x:a.x,y:a.y,w:28,h:25},'#ec4899'));
+    if(k>=8+level)return win('Wave destroyed!');
+  },16);
+}
+
+function gameBricks(){
+  let paddle=150,ball={x:200,y:400,dx:3,dy:-4},br=[];
+  for(let r=0;r<5+Math.min(level,5);r++)
+    for(let c=0;c<6;c++)
+      br.push({x:8+c*65,y:50+r*25,w:58,h:17});
+  tick(()=>{
+    base();
+    if(keys.ArrowLeft||keys.KeyA||touch.left)paddle-=7;
+    if(keys.ArrowRight||keys.KeyD||touch.right)paddle+=7;
+    paddle=Math.max(0,Math.min(310,paddle));
+    ball.x+=ball.dx;
+    ball.y+=ball.dy;
+    if(ball.x<8||ball.x>392)ball.dx*=-1;
+    if(ball.y<30)ball.dy=Math.abs(ball.dy);
+    if(ball.y>550&&ball.x>paddle&&ball.x<paddle+90&&ball.dy>0)
+      ball.dy=-Math.abs(ball.dy);
+    if(ball.y>610)return lose('The ball fell!');
+    for(let i=0;i<br.length;i++){
+      let b=br[i];
+      if(ball.x>b.x&&ball.x<b.x+b.w&&ball.y>b.y&&ball.y<b.y+b.h){
+        br.splice(i,1);
+        ball.dy*=-1;
+        add(10);
+        break;
+      }
+    }
+    rect({x:paddle,y:555,w:90,h:12},'#f472b6');
+    circle(ball.x,ball.y,7,'white');
+    br.forEach(b=>rect(b,['#fb7185','#fbbf24','#a78bfa'][Math.floor(b.y/25)%3]));
+    if(!br.length)return win('All bricks smashed!');
+  },16);
+}
+
+function gamePlatform(){
+  let p={x:25,y:500,vy:0},
+      coins=[100,190,280,350].map(x=>({x,y:430-Math.random()*180,got:false})),
+      f=0;
+  tick(()=>{
+    f++;
+    base('#10172a');
+    ctx.fillStyle='#374151';
+    ctx.fillRect(0,550,400,50);
+    for(let i=0;i<5;i++)
+      rect({x:i*90+25,y:470-(i%2)*70,w:55,h:12},'#64748b');
+    if(keys.ArrowLeft||keys.KeyA||touch.left)p.x-=4;
+    if(keys.ArrowRight||keys.KeyD||touch.right)p.x+=4;
+    if((keys.Space||keys.ArrowUp||keys.KeyW||touch.action)&&p.y>=510)p.vy=-11;
+    p.vy+=.45;
+    p.y+=p.vy;
+    p.x=Math.max(0,Math.min(370,p.x));
+    if(p.y>510){p.y=510;p.vy=0}
+    coins.forEach(c=>{
+      if(!c.got){
+        circle(c.x,c.y,8,'#facc15');
+        if(Math.abs(p.x-c.x)<20&&Math.abs(p.y-c.y)<20){
+          c.got=true;
+          add(10);
+        }
+      }
+    });
+    rect({x:p.x,y:p.y,w:28,h:35},'#818cf8');
+    rect({x:360,y:505,w:25,h:45},'#34d399');
+    if(p.x>345&&p.y>490)return win('You reached the exit!');
+    if(f>1800)return lose('Time ran out!');
+  },16);
+}
+
+function gameMaze(){
+  const grid=Array.from({length:15},()=>Array.from({length:10},()=>Math.random()<.20?1:0));
+  // Carve a guaranteed path from the start down the left corridor and across to the exit.
+  for(let y=1;y<=13;y++)grid[y][1]=0;
+  for(let x=1;x<=8;x++)grid[13][x]=0;
+  grid[1][1]=grid[13][8]=0;
+  let p={x:1,y:1},e={x:8,y:13},f=0;
+  function draw(){
+    base();
+    for(let y=0;y<15;y++)
+      for(let x=0;x<10;x++)
+        if(grid[y][x])rect({x:x*40,y:y*40,w:39,h:39},'#334155');
+    circle(p.x*40+20,p.y*40+20,14,'#22d3ee');
+    circle(e.x*40+20,e.y*40+20,14,'#34d399');
+  }
+  run.move=(dx,dy)=>{
+    let x=p.x+dx,y=p.y+dy;
+    if(x>=0&&x<10&&y>=0&&y<15&&!grid[y][x]){
+      p={x,y};
+      add(1);
+      if(x===e.x&&y===e.y)win('Maze escaped!');
+      draw();
+    }
+  };
+  tick(()=>{
+    f++;
+    if(keys.ArrowLeft||keys.KeyA)run.move(-1,0);
+    else if(keys.ArrowRight||keys.KeyD)run.move(1,0);
+    else if(keys.ArrowUp||keys.KeyW)run.move(0,-1);
+    else if(keys.ArrowDown||keys.KeyS)run.move(0,1);
+    if(p.x===e.x&&p.y===e.y)win('Maze escaped!');
+    draw();
+  },120);
+}
+
+function gameZombie(){
+  let p={x:180,y:300},zs=[],bul=[],f=0;
+  tick(()=>{
+    f++;
+    base('#101510');
+    if(keys.ArrowLeft||keys.KeyA||touch.left)p.x-=4;
+    if(keys.ArrowRight||keys.KeyD||touch.right)p.x+=4;
+    if(keys.ArrowUp||keys.KeyW)p.y-=4;
+    if(keys.ArrowDown||keys.KeyS)p.y+=4;
+    if((keys.Space||touch.action)&&f%12===0)bul.push({x:p.x+8,y:p.y});
+    if(f%35===0)zs.push({x:Math.random()*380,y:Math.random()<.5?0:580});
+    bul.forEach(b=>b.y-=7);
+    zs.forEach(z=>{
+      let dx=p.x-z.x,dy=p.y-z.y,d=Math.hypot(dx,dy)||1;
+      z.x+=dx/d*1.1;
+      z.y+=dy/d*1.1;
+    });
+    for(let i=zs.length-1;i>=0;i--){
+      for(let j=bul.length-1;j>=0;j--){
+        if(Math.hypot(zs[i].x-bul[j].x,zs[i].y-bul[j].y)<20){
+          zs.splice(i,1);
+          bul.splice(j,1);
+          add(10);
+          break;
+        }
+      }
+    }
+    if(zs.some(z=>Math.hypot(z.x-p.x,z.y-p.y)<20))
+      return lose('A zombie got too close!');
+    circle(p.x,p.y,14,'#60a5fa');
+    zs.forEach(z=>circle(z.x,z.y,13,'#84cc16'));
+    bul.forEach(b=>circle(b.x,b.y,4,'#fef08a'));
+    if(f>900+level*20)return win('You survived the wave!');
+  },16);
+}
+
+function gameAsteroid(){
+  let p={x:180,y:500},rocks=[],f=0;
+  tick(()=>{
+    f++;
+    base();
+    if(keys.ArrowLeft||keys.KeyA||touch.left)p.x-=5;
+    if(keys.ArrowRight||keys.KeyD||touch.right)p.x+=5;
+    p.x=Math.max(10,Math.min(390,p.x));
+    if(f%20===0)rocks.push({x:Math.random()*380,y:-20,r:10+Math.random()*15,s:3+Math.random()*2});
+    rocks.forEach(r=>r.y+=r.s);
+    rocks=rocks.filter(r=>r.y<620);
+    if(rocks.some(r=>Math.hypot(r.x-p.x,r.y-520)<r.r+12))
+      return lose('Asteroid collision!');
+    rocks.forEach(r=>circle(r.x,r.y,r.r,'#fb923c'));
+    ctx.fillStyle='#38bdf8';
+    ctx.beginPath();
+    ctx.moveTo(p.x,490);
+    ctx.lineTo(p.x-13,520);
+    ctx.lineTo(p.x+13,520);
+    ctx.fill();
+    if(f%10===0)add();
+    if(f>700+level*15)return win('Asteroid field cleared!');
+  },16);
+}
+
+function gameHoop(){
+  let ball={x:80,y:480,vx:0,vy:0,active:false},
+      hoop={x:290,y:240},f=0,made=0;
+  run.shoot=()=>{
+    if(!ball.active){
+      ball.active=true;
+      ball.vx=4+Math.random()*2;
+      ball.vy=-10;
+    }
+  };
+  tick(()=>{
+    f++;
+    base('#172033');
+    rect({x:0,y:555,w:400,h:45},'#475569');
+    rect({x:hoop.x,y:hoop.y,w:8,h:55},'#f97316');
+    ctx.strokeStyle='#fb923c';
+    ctx.lineWidth=5;
+    ctx.beginPath();
+    ctx.ellipse(hoop.x-13,hoop.y+28,23,7,0,0,Math.PI*2);
+    ctx.stroke();
+    if(ball.active){
+      ball.x+=ball.vx;
+      ball.y+=ball.vy;
+      ball.vy+=.25;
+      if(ball.x>hoop.x-25&&ball.x<hoop.x+15&&ball.y>hoop.y+15&&ball.y<hoop.y+40){
+        made++;
+        add(25);
+        ball.active=false;
+        ball={x:80,y:480,vx:0,vy:0,active:false};
+        if(made>=5+Math.floor((level-1)/3))return win('Baskets scored!');
+      }
+      if(ball.y>600||ball.x>400)
+        ball={x:80,y:480,vx:0,vy:0,active:false};
+    }
+    circle(ball.x,ball.y,12,'#fb923c');
+    drawText('BASKETS '+made+'/'+(5+Math.floor((level-1)/3)),200,50,18,'#fff');
+    if(f>1800)return lose('Time is up!');
+  },16);
+}
+
+function gameTower(){
+  let towers=[],enemies=[],f=0,kills=0;
+  canvas.onclick=e=>{
+    let r=canvas.getBoundingClientRect(),
+        x=(e.clientX-r.left)*400/r.width,
+        y=(e.clientY-r.top)*600/r.height;
+    if(y>60&&y<540&&score>=20){
+      towers.push({x,y,cool:0});
+      score-=20;
+      updateScore();
+    }
+  };
+  tick(()=>{
+    f++;
+    base('#101827');
+    ctx.strokeStyle='#64748b';
+    ctx.lineWidth=35;
+    ctx.beginPath();
+    ctx.moveTo(0,300);
+    ctx.lineTo(120,300);
+    ctx.lineTo(120,420);
+    ctx.lineTo(280,420);
+    ctx.lineTo(280,180);
+    ctx.lineTo(400,180);
+    ctx.stroke();
+    if(f%40===0)enemies.push({x:0,y:300,hp:3,step:0});
+    enemies.forEach(e=>{
+      e.step++;
+      if(e.step<120)e.x+=1.1;
+      else if(e.step<240)e.y+=1;
+      else if(e.step<400)e.x+=1;
+      else e.y-=1;
+    });
+    if(enemies.some(e=>e.x>395))return lose('An enemy reached the exit!');
+    towers.forEach(t=>{
+      circle(t.x,t.y,13,'#60a5fa');
+      if(++t.cool%30===0&&enemies.length){
+        let i=enemies.findIndex(e=>Math.hypot(e.x-t.x,e.y-t.y)<130);
+        if(i>=0){
+          enemies.splice(i,1);
+          kills++;
+          add(10);
+        }
+      }
+    });
+    enemies.forEach(e=>circle(e.x,e.y,10,'#fb7185'));
+    drawText('TAP FIELD TO PLACE TOWER · COST 20',200,30,11,'#fff');
+    if(kills>=8+level)return win('Wave defended!');
+    if(f>1600)return lose('Too many enemies!');
+  },16);
+}
+
+function gamePong(){
+  let p=250,ai=250,b={x:200,y:300,dx:4,dy:3},you=0,them=0;
+  tick(()=>{
+    base();
+    if(keys.ArrowUp||keys.KeyW||touch.left)p-=6;
+    if(keys.ArrowDown||keys.KeyS||touch.right)p+=6;
+    p=Math.max(0,Math.min(510,p));
+    ai+=(b.y-(ai+45))*.04;
+    rect({x:15,y:p,w:12,h:90},'#2dd4bf');
+    rect({x:373,y:ai,w:12,h:90},'#818cf8');
+    b.x+=b.dx;
+    b.y+=b.dy;
+    if(b.y<8||b.y>592)b.dy*=-1;
+    if(b.x<30&&b.y>p&&b.y<p+90)b.dx=Math.abs(b.dx);
+    if(b.x>370&&b.y>ai&&b.y<ai+90)b.dx=-Math.abs(b.dx);
+    if(b.x<0||b.x>400){
+      if(b.x<0)them++;else you++;
+      b={x:200,y:300,dx:(you>them?-1:1)*4,dy:3};
+      if(you>=7+Math.floor((level-1)/3))return win('You won '+you+'–'+them+'!');
+      if(them>=7+Math.floor((level-1)/3))return lose('Computer won '+them+'–'+you+'.');
+    }
+    drawText(you+'     '+them,200,50,28,'#fff');
+    circle(b.x,b.y,8,'white');
+  },16);
+}
+
+function gameDrift(){
+  let car=180,f=0,cones=[];
+  tick(()=>{
+    f++;
+    base('#17251c');
+    ctx.fillStyle='#4b5563';
+    ctx.fillRect(55,0,290,600);
+    ctx.strokeStyle='#fef3c7';
+    ctx.setLineDash([22,20]);
+    ctx.lineWidth=4;
+    ctx.beginPath();
+    ctx.moveTo(200,0);
+    ctx.lineTo(200,600);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if(f%35===0)cones.push({x:90+Math.random()*220,y:-20});
+    cones.forEach(c=>c.y+=5);
+    cones=cones.filter(c=>c.y<620);
+    if(keys.ArrowLeft||keys.KeyA||touch.left)car-=5;
+    if(keys.ArrowRight||keys.KeyD||touch.right)car+=5;
+    car=Math.max(65,Math.min(300,car));
+    rect({x:car,y:500,w:36,h:60},'#e879f9');
+    cones.forEach(c=>{
+      circle(c.x,c.y,12,'#fb923c');
+      if(Math.abs(car+18-c.x)<27&&Math.abs(530-c.y)<35)lose('Hit a cone!');
+    });
+    if(f%10===0)add();
+    if(f>650+level*12)return win('Lap completed!');
+  },16);
+}
+
+function gameBlocks(){
+  let grid=Array.from({length:25},()=>Array(10).fill(0)),
+      piece=null,f=0;
+  function spawn(){
+    piece={x:4,y:0,shape:[[1,1,1],[0,1,0]]};
+    if(piece.shape.some((row,dy)=>row.some((v,dx)=>v&&(grid[piece.y+dy]?.[piece.x+dx]??1)))){
+      lose('Stack reached the top!');
+    }
+  }
+  function valid(x,y,shape){
+    return shape.every((row,dy)=>row.every((v,dx)=>!v||(x+dx>=0&&x+dx<10&&y+dy<25&&y+dy>=0&&!grid[y+dy][x+dx])));
+  }
+  function lock(){
+    piece.shape.forEach((row,dy)=>row.forEach((v,dx)=>{
+      if(v&&grid[piece.y+dy])grid[piece.y+dy][piece.x+dx]=1;
+    }));
+    let n=grid.filter(row=>row.every(Boolean)).length;
+    grid=grid.filter(row=>!row.every(Boolean));
+    while(grid.length<25)grid.unshift(Array(10).fill(0));
+    add(n*100);
+    spawn();
+  }
+  spawn();
+  tick(()=>{
+    f++;
+    if(keys.ArrowLeft||keys.KeyA){
+      if(valid(piece.x-1,piece.y,piece.shape))piece.x--;
+      keys.ArrowLeft=keys.KeyA=false;
+    }
+    if(keys.ArrowRight||keys.KeyD){
+      if(valid(piece.x+1,piece.y,piece.shape))piece.x++;
+      keys.ArrowRight=keys.KeyD=false;
+    }
+    if(keys.ArrowUp){
+      piece.shape=piece.shape[0].map((_,i)=>piece.shape.map(row=>row[i]).reverse());
+      keys.ArrowUp=false;
+    }
+    if(f%25===0){
+      if(valid(piece.x,piece.y+1,piece.shape))piece.y++;
+      else lock();
+    }
+    base();
+    grid.forEach((row,y)=>row.forEach((v,x)=>{
+      if(v)rect({x:x*20,y:100+y*20,w:18,h:18},'#facc15');
+    }));
+    piece?.shape.forEach((row,dy)=>row.forEach((v,dx)=>{
+      if(v)rect({x:(piece.x+dx)*20,y:100+(piece.y+dy)*20,w:18,h:18},'#a78bfa');
+    }));
+    drawText('CLEAR ROWS TO SCORE',200,45,16,'#fff');
+    if(score>=500)return win('Puzzle mastered!');
+  },16);
+}
+
+function gameFlight(){
+  let y=300,vy=0,obs=[],f=0;
+  run.flap=()=>{vy=-5.5};
+  tick(()=>{
+    f++;
+    base('#08152a');
+    vy+=.25;
+    y+=vy;
+    if(f%85===0)obs.push({x:410,gap:160+Math.random()*240});
+    obs.forEach(o=>o.x-=3.2);
+    obs=obs.filter(o=>o.x>-60);
+    if(y<0||y>600)return lose('You flew out of bounds!');
+    for(const o of obs){
+      if(o.x<55&&o.x+45>25&&(y<o.gap-75||y>o.gap+75))
+        return lose('You hit a barrier!');
+    }
+    obs.forEach(o=>{
+      rect({x:o.x,y:0,w:45,h:o.gap-75},'#38bdf8');
+      rect({x:o.x,y:o.gap+75,w:45,h:600-o.gap-75},'#38bdf8');
+    });
+    circle(40,y,13,'#facc15');
+    if(f%10===0)add();
+    if(f>900+level*20)return win('Flight complete!');
+  },16);
+}
+
+
+// Polished shared engine for the 50 additional mini-games.
+// Each game uses its own objective mode with collision checks and responsive input.
+function gameExtra(id){
+ const g=gameDefs.find(x=>x.id===id), mode=g.tag;
+ let f=0,pts=0,objects=[],shots=[],targets=[],px=180,py=500,basket=160,paddle=150,vy=0,invuln=0;
+ let ball={x:200,y:320,dx:3,dy:3.4},sequence=[],seqIndex=0,phase='show',lastAction=false;
+ const rand=(a,b)=>a+Math.random()*(b-a), goal=mode==='CATCH'?10+Math.min(level,5):mode==='TARGET'||mode==='SHOOT'?8+Math.min(level,8):mode==='PADDLE'?12+level:mode==='MEMORY'?6+Math.floor(level/2):8+Math.floor(level/2);
+ const starfield=Array.from({length:48},(_,i)=>({x:(i*83)%400,y:(i*127)%600,s:i%4===0?3:2,sp:.25+(i%5)*.12}));
+ if(mode==='MEMORY'){sequence=Array.from({length:Math.min(3+Math.floor(level/2),8)},()=>Math.floor(Math.random()*4));}
+ function spawn(){
+   if(mode==='TARGET') targets.push({x:rand(34,366),y:rand(90,500),r:rand(13,19),life:Math.max(100,190-level*3)});
+   else objects.push({x:rand(18,382),y:-24,r:rand(9,16),vy:rand(2.1,3.6)+Math.min(level,10)*.12,bad:Math.random()<.2,phase:rand(0,6.28)});
+ }
+ function pixelShip(x,y,color){
+   rect({x:x-12,y:y-10,w:24,h:18},color);rect({x:x-6,y:y-16,w:12,h:8},'#e0f2fe');
+   rect({x:x-17,y:y+3,w:7,h:7},color);rect({x:x+10,y:y+3,w:7,h:7},color);rect({x:x-4,y:y+8,w:8,h:5},'#fb923c');
+ }
+ function background(){
+   base('#080d1b');
+   for(const st of starfield){ctx.fillStyle=st.s===3?'#93c5fd88':'#e2e8f744';ctx.fillRect(st.x,(st.y+f*st.sp)%600,st.s,st.s);}
+   // pixel skyline / floor detail
+   if(['DODGE','SHOOT','COLLECT'].includes(mode)){
+     ctx.fillStyle='#111b31';for(let i=0;i<10;i++)ctx.fillRect(i*42,560-(i%3)*12,26,40+(i%3)*12);
+     ctx.fillStyle='#263354';for(let i=0;i<10;i++)for(let j=0;j<2;j++)ctx.fillRect(i*42+6+j*10,568-(i%3)*12,4,4);
+   }
+ }
+ function move(){
+   const left=keys.ArrowLeft||keys.KeyA||touch.left, right=keys.ArrowRight||keys.KeyD||touch.right;
+   const up=keys.ArrowUp||keys.KeyW, down=keys.ArrowDown||keys.KeyS;
+   if(mode!=='CATCH'&&mode!=='PADDLE'&&mode!=='LAND'&&mode!=='JUMP'){
+     if(left)px-=4.5;if(right)px+=4.5;if(up)py-=4;if(down)py+=4;
+   }
+   px=Math.max(18,Math.min(382,px));py=Math.max(52,Math.min(540,py));
+   if(mode==='CATCH'){if(left)basket-=6;if(right)basket+=6;basket=Math.max(0,Math.min(330,basket));}
+   if(mode==='JUMP'){
+     if((keys.Space||keys.KeyZ||up||touch.action)&&py>=490){vy=-10.5;keys.Space=keys.KeyZ=false;touch.action=false;}
+     vy+=.42;py+=vy;if(py>490){py=490;vy=0;}
+   }
+   if(mode==='LAND'){
+     if(left)px-=2.3;if(right)px+=2.3;
+     vy+=.105;py+=vy;
+     if(up)vy-=.16;
+     if(down)vy+=.16;
+     if(py>=520){py=520;if(Math.abs(px-190)<48&&vy<4.8)return win('Soft landing!');return lose('Landing too fast or off the pad!');}
+   }
+   if(mode==='PADDLE'){
+     if(left)paddle-=7;if(right)paddle+=7;paddle=Math.max(0,Math.min(310,paddle));
+     ball.x+=ball.dx;ball.y+=ball.dy;
+     if(ball.x<8||ball.x>392)ball.dx*=-1;
+     if(ball.y<55)ball.dy=Math.abs(ball.dy);
+     if(ball.y>=543&&ball.y<=570&&ball.x>=paddle-3&&ball.x<=paddle+93&&ball.dy>0){ball.dy=-Math.abs(ball.dy);ball.dx+=(ball.x-(paddle+45))*.035;pts++;add(10);}
+     if(ball.y>610){ball={x:200,y:320,dx:rand(-3,3),dy:-3.5};return lose('Ball missed!');}
+     if(pts>=goal)return win('Rally record!');
+   }
+ }
+ function drawObjects(){
+   for(const o of objects){
+     const col=o.bad?'#fb7185':g.color;
+     if(['starcatcher','firefly','gemrush','crystalcave','treasurehunt'].includes(id)){
+       ctx.fillStyle=col;ctx.fillRect(o.x-4,o.y-o.r,8,o.r*2);ctx.fillRect(o.x-o.r,o.y-4,o.r*2,8);
+       ctx.fillStyle='#ffffff99';ctx.fillRect(o.x-2,o.y-o.r+2,3,3);
+     }else if(id==='fruitfrenzy'||id==='candycatch'){
+       circle(o.x,o.y,o.r,col);rect({x:o.x-2,y:o.y-o.r-5,w:4,h:7},'#4ade80');
+     }else{
+       rect({x:o.x-o.r,y:o.y-o.r,w:o.r*2,h:o.r*2},col);rect({x:o.x-o.r+3,y:o.y-o.r+3,w:4,h:4},'#ffffff88');
+     }
+   }
+ }
+ function drawPlayer(){
+   if(mode==='CATCH'){
+     rect({x:basket,y:545,w:70,h:20},g.color);rect({x:basket+7,y:539,w:56,h:7},'#e0f2fe');
+     rect({x:basket+3,y:562,w:64,h:4},'#ffffff55');
+   }else if(mode==='PADDLE'){
+     rect({x:paddle,y:555,w:90,h:12},g.color);rect({x:paddle+8,y:555,w:74,h:3},'#fff9');circle(ball.x,ball.y,8,'#fff');circle(ball.x-2,ball.y-2,2,'#93c5fd');
+   }else if(mode==='JUMP'){
+     rect({x:0,y:535,w:400,h:65},'#17243a');rect({x:px-12,y:py+29,w:25,h:5},'#ffffff33');
+     rect({x:px-10,y:py-8,w:20,h:28},g.color);rect({x:px-6,y:py-15,w:12,h:9},'#f8fafc');rect({x:px-13,y:py+15,w:8,h:12},'#334155');rect({x:px+5,y:py+15,w:8,h:12},'#334155');
+   }else if(mode==='LAND'){
+     rect({x:px-13,y:py-16,w:26,h:27},g.color);rect({x:px-6,y:py-22,w:12,h:7},'#e2e8f0');rect({x:px-18,y:py+8,w:7,h:7},'#94a3b8');rect({x:px+11,y:py+8,w:7,h:7},'#94a3b8');
+   }else if(mode==='SHOOT')pixelShip(px,py,g.color);
+   else {rect({x:px-11,y:py-11,w:22,h:22},g.color);rect({x:px-5,y:py-5,w:10,h:6},'#f8fafc');rect({x:px-7,y:py+11,w:5,h:5},'#ffffff66');}
+ }
+ function render(){
+   background();
+   if(mode==='DODGE'){
+     drawObjects();drawPlayer();
+     if(invuln<=0&&objects.some(o=>Math.hypot(o.x-px,o.y-py)<o.r+11))return lose('You hit a hazard!');
+     if(f%10===0)add(1);
+   }else if(mode==='CATCH'){
+     drawObjects();drawPlayer();
+     for(let i=objects.length-1;i>=0;i--){const o=objects[i];if(o.y+o.r>=535&&o.y-o.r<=570&&o.x+o.r>=basket&&o.x-o.r<=basket+70){objects.splice(i,1);if(o.bad)return lose('You caught a bad item!');pts++;add(10);}else if(o.y>620)objects.splice(i,1);}
+     if(pts>=goal)return win('Collection complete!');
+   }else if(mode==='COLLECT'){
+     drawObjects();drawPlayer();
+     for(let i=objects.length-1;i>=0;i--){const o=objects[i];if(Math.hypot(o.x-px,o.y-py)<o.r+12){objects.splice(i,1);if(o.bad)return lose('You touched a trap!');pts++;add(10);}else if(o.y>620)objects.splice(i,1);}
+     if(pts>=goal)return win('Treasure collected!');
+   }else if(mode==='SHOOT'){
+     drawObjects();
+     if((keys.Space||keys.KeyZ||touch.action)&&f%9===0)shots.push({x:px,y:py-18});
+     for(const sh of shots){sh.y-=8;rect({x:sh.x-2,y:sh.y,w:4,h:13},'#fef08a');}
+     for(let i=objects.length-1;i>=0;i--){const o=objects[i];const j=shots.findIndex(sh=>Math.hypot(sh.x-o.x,sh.y-o.y)<o.r+5);if(j>=0){objects.splice(i,1);shots.splice(j,1);pts++;add(15);}}
+     shots=shots.filter(sh=>sh.y>-20);drawPlayer();
+     if(objects.some(o=>o.y>590))return lose('An enemy escaped!');if(pts>=goal)return win('Arena cleared!');
+   }else if(mode==='TARGET'){
+     for(const t of targets){rect({x:t.x-t.r,y:t.y-t.r,w:t.r*2,h:t.r*2},g.color);rect({x:t.x-t.r+4,y:t.y-t.r+4,w:t.r*2-8,h:t.r*2-8},'#f8fafc');circle(t.x,t.y,4,'#0b1020');t.life--;}
+     targets=targets.filter(t=>t.life>0);drawText('CLICK / TAP TARGETS',200,35,12,'#e2e8f0');
+     if(targets.length===0&&pts<goal&&f>100)return lose('Targets escaped!');if(pts>=goal)return win('Target practice complete!');
+   }else if(mode==='JUMP'){
+     for(let i=0;i<6;i++){const x=(i*83+15-(f*2.4)%83);rect({x,y:470-(i%2)*60,w:42,h:8},g.color);}
+     drawPlayer();if(f%70===0)objects.push({x:rand(60,350),y:510,r:12,vy:0,bad:true});
+     if(objects.some(o=>Math.abs(o.x-px)<22&&py>470&&py<530))return lose('You hit an obstacle!');
+     if(f>850)return win('You reached the summit!');
+   }else if(mode==='LAND'){
+     rect({x:130,y:535,w:110,h:8},'#22c55e');rect({x:135,y:543,w:100,h:4},'#ffffff55');drawText('LANDING PAD',185,515,11,'#86efac');drawPlayer();
+   }else if(mode==='MEMORY'){
+     drawText('MEMORY SEQUENCE',200,65,15,g.color);
+     if(phase==='show'){
+       const step=Math.floor(f/35);
+       if(step<sequence.length){const cols=['#f87171','#60a5fa','#4ade80','#facc15'];const symbols=['■','●','▲','◆'];drawText(symbols[sequence[step]],200,285,58,cols[sequence[step]]);drawText(`Remember ${step+1} / ${sequence.length}`,200,350,13,'#e2e8f0');}
+       else {phase='input';f=0;}
+     }else{
+       drawText('Repeat the pattern: press 1-4',200,130,13,'#fff');
+       const cols=['#f87171','#60a5fa','#4ade80','#facc15'],symbols=['■','●','▲','◆'];
+       for(let i=0;i<4;i++){rect({x:44+i*82,y:250,w:56,h:56},cols[i]);drawText(String(i+1),72+i*82,330,14,'#fff');}
+       drawText(`Progress ${seqIndex} / ${sequence.length}`,200,390,13,'#e2e8f0');
+     }
+   }else if(mode==='PADDLE'){
+     drawPlayer();rect({x:0,y:48,w:400,h:3},'#ffffff22');
+   }
+   if(mode!=='MEMORY'&&f%10===0)add(1);
+   drawText(`GOAL ${pts}/${goal}`,200,585,11,'#cbd5e1');
+   if(f>1300)return win('Time survived!');
+ }
+ canvas.onclick=(ev)=>{
+   if(!current||current.id!==id)return;
+   const r=canvas.getBoundingClientRect(),x=(ev.clientX-r.left)*400/r.width,y=(ev.clientY-r.top)*600/r.height;
+   if(mode==='TARGET'){
+     const hit=targets.findIndex(t=>Math.hypot(t.x-x,t.y-y)<t.r+8);
+     if(hit>=0){targets.splice(hit,1);pts++;add(15);if(pts>=goal)win('Target practice complete!');}
+   }else if(mode==='MEMORY'&&phase==='input'){
+     const pick=Math.floor((x-44)/82);if(y>=250&&y<=310&&pick>=0&&pick<4)memoryInput(pick);
+   }
+ };
+ function memoryInput(n){if(sequence[seqIndex]!==n){return lose('Wrong sequence! Try again.');}seqIndex++;add(10);if(seqIndex>=sequence.length)return win('Sequence remembered!');}
+ tick(()=>{
+   f++;if(invuln>0)invuln--;
+   if(mode==='MEMORY'&&phase==='input'){
+     for(let i=0;i<4;i++)if(keys['Digit'+(i+1)]){keys['Digit'+(i+1)]=false;memoryInput(i);break;}
+     if(keys.Space||keys.KeyZ||touch.action){keys.Space=keys.KeyZ=false;touch.action=false;}
+   }
+   if(f%Math.max(18,48-Math.min(level,12)*2)===0&&!['PADDLE','MEMORY','LAND'].includes(mode))spawn();
+   objects.forEach(o=>{o.y+=o.vy;if(mode==='DODGE')o.x+=Math.sin(f/20+o.phase)*.8;});
+   move();render();
+ },16);
+}
+
+</script>
+</body>
+</html>
