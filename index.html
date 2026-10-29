@@ -3,47 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ArcadeVerse — 64 Playable Mini-Games</title>
-<script src="https://cdn.tailwindcss.com">
-// Extra-game engine: 50 new cards use different objectives and themes.
-function gameExtra(id){
- const g=gameDefs.find(x=>x.id===id), mode=g.tag; let f=0,pts=0,objects=[],shots=[],targets=[],px=180,py=510,basket=160,paddle=150,vy=0;
- let ball={x:200,y:330,dx:3,dy:3.5};
- const rand=(a,b)=>a+Math.random()*(b-a);
- function spawn(){if(mode==='TARGET')targets.push({x:rand(35,365),y:rand(75,500),life:180});else objects.push({x:rand(15,385),y:-20,r:rand(10,17),vy:rand(2,4)+level*.08,bad:Math.random()<.2});}
- function move(){
-  if(keys.ArrowLeft||keys.KeyA||touch.left)px-=5;if(keys.ArrowRight||keys.KeyD||touch.right)px+=5;
-  if(keys.ArrowUp||keys.KeyW)py-=4;if(keys.ArrowDown||keys.KeyS)py+=4;
-  px=Math.max(10,Math.min(390,px));py=Math.max(50,Math.min(550,py));
-  if(mode==='CATCH'){if(keys.ArrowLeft||keys.KeyA||touch.left)basket-=6;if(keys.ArrowRight||keys.KeyD||touch.right)basket+=6;basket=Math.max(0,Math.min(330,basket));}
-  if(mode==='JUMP'){if((keys.Space||keys.ArrowUp||touch.action)&&py>=500)vy=-11;vy+=.5;py+=vy;if(py>500){py=500;vy=0;}}
-  if(mode==='PADDLE'){if(keys.ArrowLeft||keys.KeyA||touch.left)paddle-=7;if(keys.ArrowRight||keys.KeyD||touch.right)paddle+=7;paddle=Math.max(0,Math.min(310,paddle));ball.x+=ball.dx;ball.y+=ball.dy;if(ball.x<8||ball.x>392)ball.dx*=-1;if(ball.y<40)ball.dy=Math.abs(ball.dy);if(ball.y>545&&ball.x>paddle&&ball.x<paddle+90){ball.dy=-Math.abs(ball.dy);pts++;add(5);}if(ball.y>610)ball={x:200,y:330,dx:rand(-3,3),dy:-3.5};if(pts>=12+level)return win('Great rally!');}
- }
- canvas.onclick=()=>{if(mode==='TARGET'&&targets.length){targets.shift();pts++;add(10);if(pts>=8+level)win('Target challenge complete!');}};
- tick(()=>{f++;move();if(f%Math.max(18,45-level*2)===0&&mode!=='PADDLE')spawn();objects.forEach(o=>o.y+=o.vy);targets.forEach(t=>t.life--);targets=targets.filter(t=>t.life>0);base('#0b1020');
-  for(let i=0;i<30;i++){ctx.fillStyle='#ffffff33';ctx.fillRect((i*71+f*.3)%400,(i*97)%580,2,2);}
-  if(mode==='DODGE'){objects.forEach(o=>circle(o.x,o.y,o.r,g.color));if(objects.some(o=>Math.hypot(o.x-px,o.y-py)<o.r+12))return lose('You hit a hazard!');circle(px,py,14,'#fff');}
-  else if(mode==='CATCH'){objects.forEach(o=>circle(o.x,o.y,o.r,o.bad?'#fb7185':g.color));objects=objects.filter(o=>{if(o.y>530&&o.y<575&&o.x>basket&&o.x<basket+70){if(o.bad){lose('Wrong item!');return false;}pts++;add(10);return false;}return o.y<620;});rect({x:basket,y:545,w:70,h:22},g.color);if(pts>=10+level)return win('Collection complete!');}
-  else if(mode==='COLLECT'){objects.forEach(o=>circle(o.x,o.y,o.r,o.bad?'#fb7185':g.color));objects=objects.filter(o=>{if(Math.hypot(o.x-px,o.y-py)<o.r+12){if(o.bad){lose('You found a trap!');return false;}pts++;add(10);return false;}return o.y<620;});circle(px,py,14,g.color);if(pts>=8+Math.floor(level/2))return win('Treasure collected!');}
-  else if(mode==='SHOOT'){if((keys.Space||keys.KeyZ||touch.action)&&f%12===0)shots.push({x:px,y:py-15});shots.forEach(b=>b.y-=8);objects.forEach(o=>circle(o.x,o.y,o.r,g.color));for(let i=objects.length-1;i>=0;i--){let j=shots.findIndex(b=>Math.hypot(b.x-objects[i].x,b.y-objects[i].y)<objects[i].r+7);if(j>=0){objects.splice(i,1);shots.splice(j,1);pts++;add(10);}}shots.forEach(b=>rect({x:b.x-2,y:b.y,w:4,h:12},'#fef08a'));circle(px,py,14,g.color);if(pts>=8+level)return win('Arena cleared!');if(objects.some(o=>o.y>590))return lose('A target escaped!');}
-  else if(mode==='TARGET'){targets.forEach(t=>circle(t.x,t.y,15,g.color));drawText('CLICK TARGETS!',200,35,13,'#fff');if(targets.length===0&&pts<8+level&&f>100)return lose('Targets escaped!');if(pts>=8+level)return win('Target practice complete!');}
-  else if(mode==='JUMP'){rect({x:0,y:535,w:400,h:65},'#334155');for(let i=0;i<5;i++)rect({x:(i*95+30-(f*2)%95),y:470-(i%2)*55,w:55,h:10},g.color);circle(px,py,15,g.color);if(f%65===0)objects.push({x:rand(80,360),y:520,r:12,vy:0,bad:true});if(objects.some(o=>Math.abs(o.x-px)<24&&py>480))return lose('You hit an obstacle!');}
-  else if(mode==='LAND'){rect({x:135,y:535,w:110,h:7},'#34d399');drawText('LAND HERE',190,515,12,'#34d399');rect({x:px,y:py,w:25,h:30},g.color);if(py>520){if(Math.abs(px-190)<50&&vy<5)return win('Safe landing!');return lose('Hard landing!');}}
-  else if(mode==='MEMORY'){drawText('MEMORY RUN',200,80,20,g.color);drawText('Press SPACE or click to score',200,300,14,'#fff');if((keys.Space||touch.action)&&f%15===0){keys.Space=false;touch.action=false;pts++;add(5);}if(pts>=8+level)return win('Memory challenge complete!');}
-  else if(mode==='PADDLE'){rect({x:paddle,y:555,w:90,h:12},g.color);circle(ball.x,ball.y,8,'#fff');}
-  if(f%10===0)add(1);if(f>1100)return win('Time survived!');
- },16);
-}
-
-</script>
+<title>ArcadeVerse — 64 Playable Mini-Games (Fixed)</title>
+<script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-body{font-family:Inter,sans-serif;background:#0b0f19;color:#f3f4f6}
-.arcade-font{font-family:'Press Start 2P',monospace}
-.glow-box{box-shadow:0 0 20px #6366f133;border:1px solid #6366f155}
-.glow-box:hover{box-shadow:0 0 25px #a855f780;border-color:#a855f799}
-canvas{image-rendering:pixelated;touch-action:none}
-.game-card{min-height:220px}
+body{font-family:Inter,sans-serif;background:#070b16;color:#f3f4f6;background-image:radial-gradient(ellipse at top,#18244a 0%,#070b16 58%);background-attachment:fixed}
+.arcade-font{font-family:'Press Start 2P',monospace;letter-spacing:.02em}
+.glow-box{box-shadow:0 8px 0 #02040b,0 0 20px #6366f133;border:1px solid #6366f177;background-image:linear-gradient(145deg,#151b30,#0d1222)}
+.glow-box:hover{box-shadow:0 8px 0 #02040b,0 0 28px #a855f780;border-color:#a855f799;transform:translateY(-3px)}
+button{transition:transform .12s ease,filter .12s ease}
+button:hover{filter:brightness(1.15)}button:active{transform:translateY(2px)}
+canvas{image-rendering:pixelated;touch-action:none;background:#080d1b;outline:1px solid #39436a;box-shadow:inset 0 0 30px #000}
+.game-card{min-height:220px;position:relative;overflow:hidden}
+.game-card:after{content:'';position:absolute;inset:auto -30px -55px auto;width:120px;height:120px;border-radius:50%;background:#818cf822;filter:blur(18px);pointer-events:none}
+#game-overlay{backdrop-filter:blur(4px)}
 </style>
 </head>
 <body class="min-h-screen">
@@ -59,7 +32,7 @@ canvas{image-rendering:pixelated;touch-action:none}
 <section id="hub-view" class="space-y-8">
 <div class="text-center space-y-3">
 <h2 class="text-3xl md:text-5xl font-extrabold">Choose Your Game</h2>
-<p class="text-gray-400 max-w-2xl mx-auto">64 arcade games. Use keyboard controls, click targets, or the buttons on screen. Progress and best scores are saved locally.</p>
+<p class="text-gray-400 max-w-2xl mx-auto">64 arcade challenges with crisp pixel visuals, smoother movement, hazards, targets, and local high scores. Choose a game and beat your best!</p>
 </div>
 <div id="game-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
 </section>
@@ -164,11 +137,11 @@ const safeStorage={getItem(k){try{return window.localStorage.getItem(k)}catch(e)
 const $=id=>document.getElementById(id);
 const canvas=$('gameCanvas'),ctx=canvas.getContext('2d');
 const scores={},levels={};
-let current=null,loop=null,raf=null,run=null,score=0,level=1,keys={},touch={left:false,right:false,action:false};
+let current=null,loop=null,raf=null,run=null,score=0,level=1,roundFinished=false,keys={},touch={left:false,right:false,action:false};
 
 gameDefs.forEach(g=>{
   scores[g.id]=+(safeStorage.getItem('av_score_'+g.id)||0);
-  levels[g.id]=+(safeStorage.getItem('av_level_'+g.id)||1);
+  levels[g.id]=Math.max(1,Math.min(50,parseInt(safeStorage.getItem('av_level_'+g.id)||'1',10)||1));
 });
 
 $('game-grid').innerHTML=gameDefs.map(g=>`
@@ -210,7 +183,7 @@ function circle(x,y,r,c){
 
 function openGame(id){
   current=gameDefs.find(g=>g.id===id);
-  level=levels[id]||1;
+  level=Math.max(1,Math.min(50,levels[id]||1));
   score=0;
   $('hub-view').classList.add('hidden');
   $('game-view').classList.remove('hidden');
@@ -218,7 +191,7 @@ function openGame(id){
   $('game-title').textContent=current.icon+' '+current.name.toUpperCase();
   $('game-overlay').classList.remove('hidden');
   $('overlay-title').textContent='READY?';
-  $('overlay-desc').textContent=current.desc+' Controls: '+current.controls+'.';
+  $('overlay-desc').textContent=current.desc+' Controls: '+current.controls+'. Current level: '+level+'. Difficulty increases as you advance.';
   $('overlay-btn').textContent='START GAME';
   base();
   drawText(current.name,200,290,22,current.color);
@@ -226,13 +199,14 @@ function openGame(id){
 
 function showHub(){
   stop();
+  canvas.onclick=null;
   current=null;
   $('game-view').classList.add('hidden');
   $('game-view').classList.remove('flex');
   $('hub-view').classList.remove('hidden');
 }
 function stop(){
-  if(loop)clearInterval(loop);
+  if(loop&&typeof loop.stop==='function')loop.stop();
   if(raf)cancelAnimationFrame(raf);
   loop=null;
   raf=null;
@@ -255,18 +229,23 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>keys[e.code]=false);
 
 function finish(win,msg){
+  // A round may trigger more than one win/loss callback in the same frame.
+  // Lock it immediately so a level can only advance once per successful clear.
+  if(roundFinished)return;
+  roundFinished=true;
   stop();
   if(win){
     scores[current.id]=Math.max(scores[current.id],score);
-    levels[current.id]=Math.min(50,level+1);
+    levels[current.id]=Math.min(50,Math.max(1,Number(level)||1)+1);
+    level=levels[current.id];
     safeStorage.setItem('av_score_'+current.id,scores[current.id]);
     safeStorage.setItem('av_level_'+current.id,levels[current.id]);
   }
   renderCards();
   $('game-overlay').classList.remove('hidden');
-  $('overlay-title').textContent=win?'LEVEL CLEAR! 🎉':'TRY AGAIN!';
-  $('overlay-desc').textContent=msg+' Score: '+score;
-  $('overlay-btn').textContent=win?'NEXT LEVEL':'RETRY';
+  $('overlay-title').textContent=win?(level>=50?'MAX LEVEL REACHED! 🏆':'LEVEL '+(level-1)+' CLEAR! 🎉'):'TRY AGAIN!';
+  $('overlay-desc').textContent=msg+' Score: '+score+(win?' · Next level: '+level:' · Current level: '+level);
+  $('overlay-btn').textContent=win?'PLAY LEVEL '+level:'RETRY LEVEL '+level;
 }
 function renderCards(){
   [...$('game-grid').children].forEach((el,i)=>{
@@ -276,6 +255,11 @@ function renderCards(){
 }
 function startRound(){
   stop();
+  if(!current)return;
+  // Always take the authoritative saved level for the selected game.
+  level=Math.max(1,Math.min(50,Number(levels[current.id])||1));
+  roundFinished=false;
+  keys={};touch={left:false,right:false,action:false};
   canvas.onclick=null;
   $('game-overlay').classList.add('hidden');
   score=0;
@@ -298,7 +282,23 @@ function add(n=1){
   score+=n;
   updateScore();
 }
-function tick(fn,ms=16){loop=setInterval(fn,ms)}
+function tick(fn,ms=16){
+  if(raf)cancelAnimationFrame(raf);
+  const step=Math.max(8,ms), maxDelta=100;
+  let last=0,acc=0,active=true;
+  loop={stop(){active=false;}};
+  const frame=(now)=>{
+    if(!active||!current)return;
+    if(!last)last=now;
+    acc+=Math.min(maxDelta,now-last);last=now;
+    let safety=0;
+    while(acc>=step&&safety++<5&&active){
+      fn();acc-=step;
+    }
+    if(active)raf=requestAnimationFrame(frame);
+  };
+  raf=requestAnimationFrame(frame);
+}
 function win(msg){finish(true,msg)}
 function lose(msg){finish(false,msg)}
 
@@ -527,7 +527,7 @@ function gameZombie(){
     circle(p.x,p.y,14,'#60a5fa');
     zs.forEach(z=>circle(z.x,z.y,13,'#84cc16'));
     bul.forEach(b=>circle(b.x,b.y,4,'#fef08a'));
-    if(f>1200)return win('You survived the wave!');
+    if(f>900+level*20)return win('You survived the wave!');
   },16);
 }
 
@@ -552,7 +552,7 @@ function gameAsteroid(){
     ctx.lineTo(p.x+13,520);
     ctx.fill();
     if(f%10===0)add();
-    if(f>900)return win('Asteroid field cleared!');
+    if(f>700+level*15)return win('Asteroid field cleared!');
   },16);
 }
 
@@ -585,13 +585,13 @@ function gameHoop(){
         add(25);
         ball.active=false;
         ball={x:80,y:480,vx:0,vy:0,active:false};
-        if(made>=5)return win('Five baskets!');
+        if(made>=5+Math.floor((level-1)/3))return win('Baskets scored!');
       }
       if(ball.y>600||ball.x>400)
         ball={x:80,y:480,vx:0,vy:0,active:false};
     }
     circle(ball.x,ball.y,12,'#fb923c');
-    drawText('BASKETS '+made+'/5',200,50,18,'#fff');
+    drawText('BASKETS '+made+'/'+(5+Math.floor((level-1)/3)),200,50,18,'#fff');
     if(f>1800)return lose('Time is up!');
   },16);
 }
@@ -666,8 +666,8 @@ function gamePong(){
     if(b.x<0||b.x>400){
       if(b.x<0)them++;else you++;
       b={x:200,y:300,dx:(you>them?-1:1)*4,dy:3};
-      if(you>=7)return win('You won '+you+'–'+them+'!');
-      if(them>=7)return lose('Computer won '+them+'–'+you+'.');
+      if(you>=7+Math.floor((level-1)/3))return win('You won '+you+'–'+them+'!');
+      if(them>=7+Math.floor((level-1)/3))return lose('Computer won '+them+'–'+you+'.');
     }
     drawText(you+'     '+them,200,50,28,'#fff');
     circle(b.x,b.y,8,'white');
@@ -701,7 +701,7 @@ function gameDrift(){
       if(Math.abs(car+18-c.x)<27&&Math.abs(530-c.y)<35)lose('Hit a cone!');
     });
     if(f%10===0)add();
-    if(f>800)return win('Lap completed!');
+    if(f>650+level*12)return win('Lap completed!');
   },16);
 }
 
@@ -780,9 +780,167 @@ function gameFlight(){
     });
     circle(40,y,13,'#facc15');
     if(f%10===0)add();
-    if(f>1200)return win('Flight complete!');
+    if(f>900+level*20)return win('Flight complete!');
   },16);
 }
+
+
+// Polished shared engine for the 50 additional mini-games.
+// Each game uses its own objective mode with collision checks and responsive input.
+function gameExtra(id){
+ const g=gameDefs.find(x=>x.id===id), mode=g.tag;
+ let f=0,pts=0,objects=[],shots=[],targets=[],px=180,py=500,basket=160,paddle=150,vy=0,invuln=0;
+ let ball={x:200,y:320,dx:3,dy:3.4},sequence=[],seqIndex=0,phase='show',lastAction=false;
+ const rand=(a,b)=>a+Math.random()*(b-a), goal=mode==='CATCH'?10+Math.min(level,5):mode==='TARGET'||mode==='SHOOT'?8+Math.min(level,8):mode==='PADDLE'?12+level:mode==='MEMORY'?6+Math.floor(level/2):8+Math.floor(level/2);
+ const starfield=Array.from({length:48},(_,i)=>({x:(i*83)%400,y:(i*127)%600,s:i%4===0?3:2,sp:.25+(i%5)*.12}));
+ if(mode==='MEMORY'){sequence=Array.from({length:Math.min(3+Math.floor(level/2),8)},()=>Math.floor(Math.random()*4));}
+ function spawn(){
+   if(mode==='TARGET') targets.push({x:rand(34,366),y:rand(90,500),r:rand(13,19),life:Math.max(100,190-level*3)});
+   else objects.push({x:rand(18,382),y:-24,r:rand(9,16),vy:rand(2.1,3.6)+Math.min(level,10)*.12,bad:Math.random()<.2,phase:rand(0,6.28)});
+ }
+ function pixelShip(x,y,color){
+   rect({x:x-12,y:y-10,w:24,h:18},color);rect({x:x-6,y:y-16,w:12,h:8},'#e0f2fe');
+   rect({x:x-17,y:y+3,w:7,h:7},color);rect({x:x+10,y:y+3,w:7,h:7},color);rect({x:x-4,y:y+8,w:8,h:5},'#fb923c');
+ }
+ function background(){
+   base('#080d1b');
+   for(const st of starfield){ctx.fillStyle=st.s===3?'#93c5fd88':'#e2e8f744';ctx.fillRect(st.x,(st.y+f*st.sp)%600,st.s,st.s);}
+   // pixel skyline / floor detail
+   if(['DODGE','SHOOT','COLLECT'].includes(mode)){
+     ctx.fillStyle='#111b31';for(let i=0;i<10;i++)ctx.fillRect(i*42,560-(i%3)*12,26,40+(i%3)*12);
+     ctx.fillStyle='#263354';for(let i=0;i<10;i++)for(let j=0;j<2;j++)ctx.fillRect(i*42+6+j*10,568-(i%3)*12,4,4);
+   }
+ }
+ function move(){
+   const left=keys.ArrowLeft||keys.KeyA||touch.left, right=keys.ArrowRight||keys.KeyD||touch.right;
+   const up=keys.ArrowUp||keys.KeyW, down=keys.ArrowDown||keys.KeyS;
+   if(mode!=='CATCH'&&mode!=='PADDLE'&&mode!=='LAND'&&mode!=='JUMP'){
+     if(left)px-=4.5;if(right)px+=4.5;if(up)py-=4;if(down)py+=4;
+   }
+   px=Math.max(18,Math.min(382,px));py=Math.max(52,Math.min(540,py));
+   if(mode==='CATCH'){if(left)basket-=6;if(right)basket+=6;basket=Math.max(0,Math.min(330,basket));}
+   if(mode==='JUMP'){
+     if((keys.Space||keys.KeyZ||up||touch.action)&&py>=490){vy=-10.5;keys.Space=keys.KeyZ=false;touch.action=false;}
+     vy+=.42;py+=vy;if(py>490){py=490;vy=0;}
+   }
+   if(mode==='LAND'){
+     if(left)px-=2.3;if(right)px+=2.3;
+     vy+=.105;py+=vy;
+     if(up)vy-=.16;
+     if(down)vy+=.16;
+     if(py>=520){py=520;if(Math.abs(px-190)<48&&vy<4.8)return win('Soft landing!');return lose('Landing too fast or off the pad!');}
+   }
+   if(mode==='PADDLE'){
+     if(left)paddle-=7;if(right)paddle+=7;paddle=Math.max(0,Math.min(310,paddle));
+     ball.x+=ball.dx;ball.y+=ball.dy;
+     if(ball.x<8||ball.x>392)ball.dx*=-1;
+     if(ball.y<55)ball.dy=Math.abs(ball.dy);
+     if(ball.y>=543&&ball.y<=570&&ball.x>=paddle-3&&ball.x<=paddle+93&&ball.dy>0){ball.dy=-Math.abs(ball.dy);ball.dx+=(ball.x-(paddle+45))*.035;pts++;add(10);}
+     if(ball.y>610){ball={x:200,y:320,dx:rand(-3,3),dy:-3.5};return lose('Ball missed!');}
+     if(pts>=goal)return win('Rally record!');
+   }
+ }
+ function drawObjects(){
+   for(const o of objects){
+     const col=o.bad?'#fb7185':g.color;
+     if(['starcatcher','firefly','gemrush','crystalcave','treasurehunt'].includes(id)){
+       ctx.fillStyle=col;ctx.fillRect(o.x-4,o.y-o.r,8,o.r*2);ctx.fillRect(o.x-o.r,o.y-4,o.r*2,8);
+       ctx.fillStyle='#ffffff99';ctx.fillRect(o.x-2,o.y-o.r+2,3,3);
+     }else if(id==='fruitfrenzy'||id==='candycatch'){
+       circle(o.x,o.y,o.r,col);rect({x:o.x-2,y:o.y-o.r-5,w:4,h:7},'#4ade80');
+     }else{
+       rect({x:o.x-o.r,y:o.y-o.r,w:o.r*2,h:o.r*2},col);rect({x:o.x-o.r+3,y:o.y-o.r+3,w:4,h:4},'#ffffff88');
+     }
+   }
+ }
+ function drawPlayer(){
+   if(mode==='CATCH'){
+     rect({x:basket,y:545,w:70,h:20},g.color);rect({x:basket+7,y:539,w:56,h:7},'#e0f2fe');
+     rect({x:basket+3,y:562,w:64,h:4},'#ffffff55');
+   }else if(mode==='PADDLE'){
+     rect({x:paddle,y:555,w:90,h:12},g.color);rect({x:paddle+8,y:555,w:74,h:3},'#fff9');circle(ball.x,ball.y,8,'#fff');circle(ball.x-2,ball.y-2,2,'#93c5fd');
+   }else if(mode==='JUMP'){
+     rect({x:0,y:535,w:400,h:65},'#17243a');rect({x:px-12,y:py+29,w:25,h:5},'#ffffff33');
+     rect({x:px-10,y:py-8,w:20,h:28},g.color);rect({x:px-6,y:py-15,w:12,h:9},'#f8fafc');rect({x:px-13,y:py+15,w:8,h:12},'#334155');rect({x:px+5,y:py+15,w:8,h:12},'#334155');
+   }else if(mode==='LAND'){
+     rect({x:px-13,y:py-16,w:26,h:27},g.color);rect({x:px-6,y:py-22,w:12,h:7},'#e2e8f0');rect({x:px-18,y:py+8,w:7,h:7},'#94a3b8');rect({x:px+11,y:py+8,w:7,h:7},'#94a3b8');
+   }else if(mode==='SHOOT')pixelShip(px,py,g.color);
+   else {rect({x:px-11,y:py-11,w:22,h:22},g.color);rect({x:px-5,y:py-5,w:10,h:6},'#f8fafc');rect({x:px-7,y:py+11,w:5,h:5},'#ffffff66');}
+ }
+ function render(){
+   background();
+   if(mode==='DODGE'){
+     drawObjects();drawPlayer();
+     if(invuln<=0&&objects.some(o=>Math.hypot(o.x-px,o.y-py)<o.r+11))return lose('You hit a hazard!');
+     if(f%10===0)add(1);
+   }else if(mode==='CATCH'){
+     drawObjects();drawPlayer();
+     for(let i=objects.length-1;i>=0;i--){const o=objects[i];if(o.y+o.r>=535&&o.y-o.r<=570&&o.x+o.r>=basket&&o.x-o.r<=basket+70){objects.splice(i,1);if(o.bad)return lose('You caught a bad item!');pts++;add(10);}else if(o.y>620)objects.splice(i,1);}
+     if(pts>=goal)return win('Collection complete!');
+   }else if(mode==='COLLECT'){
+     drawObjects();drawPlayer();
+     for(let i=objects.length-1;i>=0;i--){const o=objects[i];if(Math.hypot(o.x-px,o.y-py)<o.r+12){objects.splice(i,1);if(o.bad)return lose('You touched a trap!');pts++;add(10);}else if(o.y>620)objects.splice(i,1);}
+     if(pts>=goal)return win('Treasure collected!');
+   }else if(mode==='SHOOT'){
+     drawObjects();
+     if((keys.Space||keys.KeyZ||touch.action)&&f%9===0)shots.push({x:px,y:py-18});
+     for(const sh of shots){sh.y-=8;rect({x:sh.x-2,y:sh.y,w:4,h:13},'#fef08a');}
+     for(let i=objects.length-1;i>=0;i--){const o=objects[i];const j=shots.findIndex(sh=>Math.hypot(sh.x-o.x,sh.y-o.y)<o.r+5);if(j>=0){objects.splice(i,1);shots.splice(j,1);pts++;add(15);}}
+     shots=shots.filter(sh=>sh.y>-20);drawPlayer();
+     if(objects.some(o=>o.y>590))return lose('An enemy escaped!');if(pts>=goal)return win('Arena cleared!');
+   }else if(mode==='TARGET'){
+     for(const t of targets){rect({x:t.x-t.r,y:t.y-t.r,w:t.r*2,h:t.r*2},g.color);rect({x:t.x-t.r+4,y:t.y-t.r+4,w:t.r*2-8,h:t.r*2-8},'#f8fafc');circle(t.x,t.y,4,'#0b1020');t.life--;}
+     targets=targets.filter(t=>t.life>0);drawText('CLICK / TAP TARGETS',200,35,12,'#e2e8f0');
+     if(targets.length===0&&pts<goal&&f>100)return lose('Targets escaped!');if(pts>=goal)return win('Target practice complete!');
+   }else if(mode==='JUMP'){
+     for(let i=0;i<6;i++){const x=(i*83+15-(f*2.4)%83);rect({x,y:470-(i%2)*60,w:42,h:8},g.color);}
+     drawPlayer();if(f%70===0)objects.push({x:rand(60,350),y:510,r:12,vy:0,bad:true});
+     if(objects.some(o=>Math.abs(o.x-px)<22&&py>470&&py<530))return lose('You hit an obstacle!');
+     if(f>850)return win('You reached the summit!');
+   }else if(mode==='LAND'){
+     rect({x:130,y:535,w:110,h:8},'#22c55e');rect({x:135,y:543,w:100,h:4},'#ffffff55');drawText('LANDING PAD',185,515,11,'#86efac');drawPlayer();
+   }else if(mode==='MEMORY'){
+     drawText('MEMORY SEQUENCE',200,65,15,g.color);
+     if(phase==='show'){
+       const step=Math.floor(f/35);
+       if(step<sequence.length){const cols=['#f87171','#60a5fa','#4ade80','#facc15'];const symbols=['■','●','▲','◆'];drawText(symbols[sequence[step]],200,285,58,cols[sequence[step]]);drawText(`Remember ${step+1} / ${sequence.length}`,200,350,13,'#e2e8f0');}
+       else {phase='input';f=0;}
+     }else{
+       drawText('Repeat the pattern: press 1-4',200,130,13,'#fff');
+       const cols=['#f87171','#60a5fa','#4ade80','#facc15'],symbols=['■','●','▲','◆'];
+       for(let i=0;i<4;i++){rect({x:44+i*82,y:250,w:56,h:56},cols[i]);drawText(String(i+1),72+i*82,330,14,'#fff');}
+       drawText(`Progress ${seqIndex} / ${sequence.length}`,200,390,13,'#e2e8f0');
+     }
+   }else if(mode==='PADDLE'){
+     drawPlayer();rect({x:0,y:48,w:400,h:3},'#ffffff22');
+   }
+   if(mode!=='MEMORY'&&f%10===0)add(1);
+   drawText(`GOAL ${pts}/${goal}`,200,585,11,'#cbd5e1');
+   if(f>1300)return win('Time survived!');
+ }
+ canvas.onclick=(ev)=>{
+   if(!current||current.id!==id)return;
+   const r=canvas.getBoundingClientRect(),x=(ev.clientX-r.left)*400/r.width,y=(ev.clientY-r.top)*600/r.height;
+   if(mode==='TARGET'){
+     const hit=targets.findIndex(t=>Math.hypot(t.x-x,t.y-y)<t.r+8);
+     if(hit>=0){targets.splice(hit,1);pts++;add(15);if(pts>=goal)win('Target practice complete!');}
+   }else if(mode==='MEMORY'&&phase==='input'){
+     const pick=Math.floor((x-44)/82);if(y>=250&&y<=310&&pick>=0&&pick<4)memoryInput(pick);
+   }
+ };
+ function memoryInput(n){if(sequence[seqIndex]!==n){return lose('Wrong sequence! Try again.');}seqIndex++;add(10);if(seqIndex>=sequence.length)return win('Sequence remembered!');}
+ tick(()=>{
+   f++;if(invuln>0)invuln--;
+   if(mode==='MEMORY'&&phase==='input'){
+     for(let i=0;i<4;i++)if(keys['Digit'+(i+1)]){keys['Digit'+(i+1)]=false;memoryInput(i);break;}
+     if(keys.Space||keys.KeyZ||touch.action){keys.Space=keys.KeyZ=false;touch.action=false;}
+   }
+   if(f%Math.max(18,48-Math.min(level,12)*2)===0&&!['PADDLE','MEMORY','LAND'].includes(mode))spawn();
+   objects.forEach(o=>{o.y+=o.vy;if(mode==='DODGE')o.x+=Math.sin(f/20+o.phase)*.8;});
+   move();render();
+ },16);
+}
+
 </script>
 </body>
 </html>
